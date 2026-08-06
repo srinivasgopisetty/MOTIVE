@@ -1,4 +1,31 @@
-.venv/
+# Python
 __pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+.venv/
+venv/
+
+# VS Code
+.vscode/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Outputs
 outputs/
-*.pyc
+
+# Datasets
+data/
+
+# Model Weights
+*.pt
+*.pth
+*.onnx
+
+# Logs
+*.log
+
+# Environment variables
+.envgit add .
