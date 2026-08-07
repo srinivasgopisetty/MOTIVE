@@ -1,34 +1,79 @@
+# -----------------------------
 # Python
+# -----------------------------
 __pycache__/
 *.py[cod]
 *$py.class
 
+# -----------------------------
 # Virtual Environment
+# -----------------------------
 .venv/
 venv/
+env/
 
+# -----------------------------
 # VS Code
+# -----------------------------
 .vscode/
 
-# Jupyter
+# -----------------------------
+# Jupyter Notebook
+# -----------------------------
 .ipynb_checkpoints/
 
-# Outputs
+# -----------------------------
+# Python Cache
+# -----------------------------
+.pytest_cache/
+.mypy_cache/
+
+# -----------------------------
+# Generated Outputs
+# -----------------------------
 outputs/
+runs/
 
+# -----------------------------
 # Datasets
-data/
+# -----------------------------
+datasets/
 
-# Model Weights
+# -----------------------------
+# Test Videos
+# -----------------------------
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+# -----------------------------
+# Temporary Images
+# -----------------------------
+temp.jpg
+temp.png
+
+# -----------------------------
+# Logs
+# -----------------------------
+*.log
+
+# -----------------------------
+# Environment Variables
+# -----------------------------
+.env
+
+# -----------------------------
+# OS Files
+# -----------------------------
+.DS_Store
+Thumbs.db
+
+# -----------------------------
+# Ignore all model weights
+# except the trained helmet model
+# -----------------------------
 *.pt
 *.pth
 *.onnx
-
-# Logs
-*.log
-
-# Environment variables
-.envgit add .
-
-# Datasets
-datasets/
+!models/helmet.pt
