@@ -2,15 +2,20 @@ from ultralytics import YOLO
 
 
 class HelmetDetector:
+
     def __init__(self):
-        self.model = YOLO("models/helmet.pt")
+        self.model = YOLO("models/helmet_200.pt")
 
-    def detect(self, image):
-        """
-        Detect helmets in an image.
+    def detect(self, frame):
 
-        Returns:
-            results[0]
-        """
-        results = self.model(image, conf=0.25, verbose=False)
+        if frame is None or frame.size == 0:
+            return None
+
+        results = self.model(
+            frame,
+            conf=0.20,
+            imgsz=1280,
+            verbose=False
+        )
+
         return results[0]
