@@ -1,222 +1,426 @@
-# 🪖 Helmet Violation Detection System
+Below is the **complete README**. Copy **everything from `# MOTIVE` down to the final line** into your `README.md`.
 
-> AI-powered traffic surveillance system for detecting helmet violations and triple riding from traffic and dashcam footage.
+# MOTIVE
 
-## 📌 Overview
+### Motorcycle-Oriented Traffic Violation Identification and Evidence
 
-The **Helmet Violation Detection System** is a computer vision project that analyzes traffic video and identifies motorcycle-related violations.
+> An AI-driven computer vision framework for motorcycle traffic monitoring, rider analysis, violation detection, and evidence generation.
 
-The system combines:
+## Abstract
 
-- 🏍️ Motorcycle detection
-- 👤 Rider detection
-- 🆔 Motorcycle and rider tracking
-- 🔗 Rider-to-motorcycle association
-- 🪖 Helmet classification
-- 🚨 No-helmet violation detection
-- 👥 Triple-riding detection
-- ⏱️ Temporal verification
-- 📸 Evidence generation
+**MOTIVE** is a research-oriented computer vision framework designed to analyze motorcycle traffic video and identify safety-related violations.
 
-The project is designed for traffic-monitoring and dashcam scenarios, including rear-view footage where motorcycles are observed from behind.
+Rather than treating helmet detection as an isolated classification problem, MOTIVE is designed as a multi-stage video-understanding pipeline combining motorcycle detection, rider/person detection, object tracking, rider–motorcycle association, helmet classification, temporal verification, rider counting, and automated evidence generation.
+
+The framework is intended to evolve toward pose-aware rider analysis for challenging traffic scenes, rear-view dashcam footage, occlusion, multiple riders, and small or distant motorcycles.
+
+The long-term objective is to develop a unified framework capable of supporting multiple motorcycle traffic violations while maintaining reliable association between a violation and the correct motorcycle and rider.
 
 ---
 
-## ✨ Features
+## Research Motivation
 
-| Feature | Description |
-|---|---|
-| 🏍️ Motorcycle Detection | Detects motorcycles in traffic footage |
-| 👤 Rider Detection | Detects people riding motorcycles |
-| 🆔 Object Tracking | Tracks motorcycles and riders across frames |
-| 🔗 Rider Association | Associates riders with the correct motorcycle |
-| 🪖 Helmet Detection | Classifies riders as with or without a helmet |
-| 🚨 No Helmet Detection | Identifies riders without helmets |
-| 👥 Triple Riding Detection | Detects motorcycles carrying three or more riders |
-| ⏱️ Temporal Verification | Uses multiple frames to improve reliability |
-| 📸 Evidence Generation | Saves evidence images for confirmed violations |
-| 🎥 Dashcam Processing | Supports traffic and dashcam video |
+Automated traffic monitoring is not simply a detection problem. A practical system must answer:
+
+1. Where is the motorcycle?
+2. Who is actually riding it?
+3. Which rider belongs to which motorcycle?
+4. Is the rider wearing a helmet?
+5. How many riders are on the motorcycle?
+6. Is the detected condition persistent enough to be considered a violation?
+7. Can the system produce evidence supporting that decision?
+
+MOTIVE addresses these questions through a structured video-analysis pipeline rather than relying on a single detector.
 
 ---
 
-## 🧠 System Workflow
+## System Architecture
 
 ```mermaid
 flowchart TD
-    A["🎥 Traffic / Dashcam Video"] --> B["🏍️ Motorcycle & Person Detection"]
-    B --> C["🆔 Object Tracking"]
-    C --> D["🔗 Rider Association"]
+    A["Traffic / Dashcam Video"] --> B["Motorcycle Detection"]
+    A --> C["Person / Rider Detection"]
+    B --> D["Object Tracking"]
+    C --> D
+    D --> E["Rider–Motorcycle Association"]
 
-    D --> E["🪖 Helmet Classification"]
-    E --> F["✅ With Helmet"]
-    E --> G["❌ Without Helmet"]
-    G --> H["🚨 No Helmet Violation"]
+    E --> F["Helmet Classification"]
+    E --> G["Rider Counting"]
 
-    D --> I["👥 Rider Count"]
-    I --> J["1 Rider"]
-    I --> K["2 Riders"]
-    I --> L["3+ Riders"]
-    L --> M["🚨 Triple Riding Violation"]
+    F --> H["Temporal Verification"]
+    G --> H
 
-    H --> N["📸 Evidence Generation"]
-    M --> N
+    H --> I["Violation Decision"]
+    I --> J["Evidence Generation"]
 ```
 
-### Violation Logic
+### Core Pipeline
 
-**No Helmet**
+```text
+Video
+  ↓
+Motorcycle + Person Detection
+  ↓
+Object Tracking
+  ↓
+Rider–Motorcycle Association
+  ↓
+┌───────────────────────┬──────────────────────┐
+│                       │                      │
+▼                       ▼                      ▼
+Helmet Analysis     Rider Counting       Future Pose Analysis
+│                       │
+▼                       ▼
+Helmet Violation     Triple Riding
+│                       │
+└──────────────┬────────┘
+               ▼
+       Temporal Verification
+               ↓
+       Violation Decision
+               ↓
+       Evidence Generation
+```
+
+---
+
+## Current Capabilities
+
+### 🏍️ Motorcycle Detection
+
+MOTIVE identifies motorcycles in traffic footage and assigns tracking identities that can persist across multiple frames.
+
+Example:
+
+```text
+Motorcycle ID 380
+Motorcycle ID 431
+Motorcycle ID 492
+```
+
+### 👤 Rider / Person Detection
+
+The system detects people appearing around motorcycles. Detection alone is not treated as proof that a person is a rider; the person must be associated with a motorcycle before being used for motorcycle-specific violation reasoning.
+
+### 🆔 Object Tracking
+
+Tracking provides temporal identity across video frames.
+
+```text
+Frame 1 → Rider ID 293
+Frame 2 → Rider ID 293
+Frame 3 → Rider ID 293
+Frame 4 → Rider ID 293
+```
+
+Tracking supports temporal reasoning, rider association, violation confirmation, and evidence generation.
+
+---
+
+## 🔗 Rider–Motorcycle Association
+
+A key component is determining which riders belong to which motorcycle.
+
+Example:
+
+```text
+Motorcycle ID 380
+├── Rider ID 293
+└── Rider ID 450
+
+Motorcycle ID 431
+└── Rider ID 403
+```
+
+A person simply being close to a motorcycle should not automatically make that person a rider. Association therefore uses spatial and tracking information to establish the relationship.
+
+---
+
+## 🪖 Helmet Violation Detection
+
+The current helmet model uses two classes:
+
+```text
+With Helmet
+Without Helmet
+```
+
+The decision logic is:
 
 ```text
 Rider
   ↓
 Helmet Classification
   ↓
-Without Helmet
-  ↓
-No Helmet Violation
-  ↓
-Evidence
+┌─────────────────┐
+│                 │
+▼                 ▼
+With Helmet   Without Helmet
+│                 │
+▼                 ▼
+Normal        Helmet Violation
+                  │
+                  ▼
+              Evidence
 ```
 
-**Triple Riding**
+A **Without Helmet** prediction represents the detected condition. Confidence and temporal verification can then be used before treating it as a confirmed violation.
 
-```text
-Motorcycle
-  ↓
-Rider Association
-  ↓
-Rider Count
-  ↓
-3 or more Riders
-  ↓
-Triple Riding Violation
-  ↓
-Evidence
-```
+A rider detected **With Helmet** is not considered a helmet violation.
 
 ---
 
-## 🪖 Helmet Detection
-
-The project uses a custom-trained helmet model with two classes:
-
-- **With Helmet**
-- **Without Helmet**
-
-Helmet predictions are associated with individual riders.
-
-Example:
-
-```text
-Bike ID 380
-
-Rider ID 293 → With Helmet
-Rider ID 450 → Without Helmet
-```
-
-The system uses confidence thresholds and temporal information to reduce unreliable single-frame decisions.
-
----
-
-## 👥 Triple Riding Detection
+## 👥 Triple-Riding Detection
 
 Triple riding is detected when **three or more riders are associated with the same motorcycle**.
 
 ```text
-1 Rider  → Normal
-2 Riders → Normal
-3+ Riders → Triple Riding Violation
+Motorcycle
+    ↓
+Rider Association
+    ↓
+Rider Count
+    ↓
+┌────────────┬────────────┬─────────────┐
+│            │            │
+1 Rider    2 Riders    3+ Riders
+│            │            │
+▼            ▼            ▼
+Normal       Normal    Triple Riding
+                         Violation
 ```
 
-Rider counting is performed after motorcycle/person detection and rider association.
-
-This helps prevent unrelated people near a motorcycle from automatically being counted as riders.
+The important step is rider association rather than simply counting people near a motorcycle.
 
 ---
 
-## 🎯 Tracking & Rider Association
+## ⏱️ Temporal Verification
 
-The system assigns IDs to motorcycles and riders and follows them across consecutive frames.
+Video provides repeated observations of the same event. MOTIVE can use temporal information to reduce the impact of:
 
-Example:
+* Single-frame false positives
+* Temporary occlusion
+* Motion blur
+* Low-confidence detections
+* Temporary tracking changes
+* Partial rider visibility
+
+Conceptually:
 
 ```text
-Bike ID 380
-├── Rider ID 293
-└── Rider ID 450
+Frame 1 ─┐
+Frame 2 ─┤
+Frame 3 ─┼──> Temporal Evidence ──> Decision
+Frame 4 ─┤
+Frame 5 ─┘
 ```
 
-Tracking is used for:
-
-- Persistent object identification
-- Rider association
-- Temporal verification
-- Violation confirmation
-- Evidence generation
+The objective is to make violation decisions based on consistent evidence over time rather than an isolated prediction.
 
 ---
 
 ## 📸 Evidence Generation
 
-When a violation is confirmed, the system saves an evidence image.
+When a violation is confirmed, the system can save an evidence image.
 
-Evidence is stored in:
+Evidence is stored under:
 
 ```text
 outputs/evidence/
 ```
 
-Example:
+Example naming convention:
 
 ```text
-bike_380_No_Helmet_20260808_171515.jpg
-bike_9_Triple_Riding_20260808_185504.jpg
+bike_492_No_Helmet_<timestamp>.jpg
+bike_9_Triple_Riding_<timestamp>.jpg
 ```
 
-The filename identifies the motorcycle, violation type, and timestamp.
+Evidence preserves the visual context supporting the detected violation.
 
 ---
 
-## 📊 Current Model Performance
+## 📊 Current Helmet Model Results
 
-The custom helmet model was evaluated on a validation dataset.
+The current custom helmet model produced the following validation results:
 
-| Class | Precision | Recall | mAP@50 | mAP@50-95 |
-|---|---:|---:|---:|---:|
-| With Helmet | 0.695 | 0.846 | 0.823 | 0.480 |
-| Without Helmet | 0.603 | 0.739 | 0.704 | 0.401 |
-| **Overall** | **0.649** | **0.793** | **0.763** | **0.440** |
+| Class          | Precision |    Recall |    mAP@50 | mAP@50-95 |
+| -------------- | --------: | --------: | --------: | --------: |
+| With Helmet    |     0.695 |     0.846 |     0.823 |     0.480 |
+| Without Helmet |     0.603 |     0.739 |     0.704 |     0.401 |
+| **Overall**    | **0.649** | **0.793** | **0.763** | **0.440** |
 
-The current model performs better on **With Helmet** detection than **Without Helmet** detection.
+The current model performs better on the **With Helmet** class than the **Without Helmet** class.
 
-Future training can focus on rear-view footage, small riders, occlusion, motion blur, and difficult lighting conditions.
+Future experiments should investigate rear-view footage, small/distant riders, occlusion, motion blur, different lighting conditions, helmet types, camera angles, and hard examples.
 
 ---
 
 ## 🎥 Camera Perspective
 
-The system is designed for traffic surveillance footage.
-
-### Rear-view Dashcam
+MOTIVE is being developed for traffic surveillance scenarios, including rear-view dashcam footage.
 
 ```text
-        Dashcam
-           ↓
+        CAMERA
+          ↓
        👤 Rider
        👤 Rider
-        🏍️ Bike
+      🏍️ Motorcycle
+          ↓
+         ROAD
 ```
 
-Rear-view processing is particularly important for real-world dashcam deployment because the camera commonly observes motorcycles from behind.
+Rear-view footage introduces challenges including:
+
+* Small helmet regions
+* Rider overlap
+* Motorcycle overlap
+* Partial occlusion
+* Motion blur
+* Perspective changes
+* Long-range detections
 
 The system has also been tested with front-view motorcycle footage.
+
+---
+
+## 🦴 Planned Pose / Anatomical Keypoint Analysis
+
+A major research direction is integrating human pose estimation / anatomical keypoints into rider analysis.
+
+Instead of relying only on bounding boxes, the system can incorporate:
+
+```text
+Head
+Shoulders
+Elbows
+Wrists
+Hips
+Knees
+Ankles
+```
+
+Pose information could be combined with:
+
+* Motorcycle bounding boxes
+* Person bounding boxes
+* Relative position
+* Tracking identity
+* Temporal movement
+* Rider count
+
+Conceptually:
+
+```text
+Person Detection
+       ↓
+Pose Keypoints
+       ↓
+Body Geometry
+       ↓
+Motorcycle Relationship
+       ↓
+Rider Association
+```
+
+### Research Hypothesis
+
+Pose information may improve rider–motorcycle association in difficult scenes where bounding-box proximity alone is insufficient. This will be evaluated experimentally rather than assumed.
+
+---
+
+## 🔬 Research Direction
+
+MOTIVE is being developed as a research platform rather than only a demonstration application.
+
+Potential research questions include:
+
+### RQ1 — Rider Association
+
+Can pose-aware spatial relationships improve rider–motorcycle association compared with bounding-box-based association?
+
+### RQ2 — Temporal Verification
+
+Can temporal consistency reduce false violation decisions compared with frame-level classification?
+
+### RQ3 — Helmet Detection
+
+How does helmet detection performance change when evaluated specifically on rear-view and small-object scenarios?
+
+### RQ4 — Triple Riding
+
+Can rider association and pose information improve triple-riding detection in crowded traffic?
+
+### RQ5 — Evidence Reliability
+
+Can multi-stage verification reduce false-positive violation evidence while maintaining useful recall?
+
+These are research questions to be experimentally evaluated, not claims of completed results.
+
+---
+
+## 🧪 Experimental Methodology
+
+Future experiments should compare individual components rather than reporting only the final system result.
+
+```text
+Baseline
+   ↓
+Detection + Tracking
+   ↓
++ Rider Association
+   ↓
++ Temporal Verification
+   ↓
++ Pose / Keypoints
+   ↓
+Full MOTIVE Pipeline
+```
+
+Potential metrics:
+
+### Detection
+
+* Precision
+* Recall
+* mAP@50
+* mAP@50-95
+
+### Tracking
+
+* ID consistency
+* ID switches
+* Track continuity
+
+### Association
+
+* Rider–motorcycle association accuracy
+* Association precision
+* Association recall
+
+### Violation Detection
+
+* Accuracy
+* Precision
+* Recall
+* F1-score
+* False-positive rate
+* False-negative rate
+
+### Evidence
+
+* Evidence correctness
+* Evidence coverage
+* False evidence rate
+
+The final research evaluation should use a clearly defined test set and report reproducible experimental conditions.
 
 ---
 
 ## 🗂️ Project Structure
 
 ```text
-HelmetViolationProject/
+MOTIVE/
 │
 ├── data/
 │   └── test_videos/
@@ -247,70 +451,64 @@ HelmetViolationProject/
 └── requirements.txt
 ```
 
+> The source tree may evolve as new research modules are added.
+
 ---
 
 ## 🛠️ Technology Stack
 
-### Programming
-- Python
-
-### Computer Vision
-- OpenCV
-- NumPy
-
-### Deep Learning
-- PyTorch
-- YOLO
-
-### AI / Computer Vision Pipeline
-- Object Detection
-- Object Tracking
-- Rider Association
-- Helmet Classification
-- Temporal Verification
-- Violation Detection
-- Evidence Generation
+| Component            | Technology                        |
+| -------------------- | --------------------------------- |
+| Language             | Python                            |
+| Computer Vision      | OpenCV                            |
+| Numerical Processing | NumPy                             |
+| Deep Learning        | PyTorch                           |
+| Object Detection     | YOLO                              |
+| Video Processing     | OpenCV                            |
+| Tracking             | Multi-object tracking             |
+| Helmet Analysis      | Custom-trained detection model    |
+| Future Pose Analysis | Human pose estimation / keypoints |
 
 ---
 
 ## ⚙️ Installation
 
-### 1. Clone the repository
+### 1. Clone the Repository
 
 ```bash
-git clone <YOUR-GITHUB-REPOSITORY-URL>
-cd HelmetViolationProject
+git clone https://github.com/srinivasgopisetty/MOTIVE.git
+cd MOTIVE
 ```
 
-### 2. Create a virtual environment
+### 2. Create a Virtual Environment
 
-**Windows:**
+Windows:
 
 ```powershell
 python -m venv .venv
 ```
 
-**Linux / macOS:**
+Linux / macOS:
 
 ```bash
 python3 -m venv .venv
 ```
 
-### 3. Activate the environment
+### 3. Activate the Environment
 
-**Windows PowerShell:**
+Windows PowerShell:
 
 ```powershell
 .venv\Scripts\Activate.ps1
 ```
 
-**Linux / macOS:**
+Linux / macOS:
 
 ```bash
 source .venv/bin/activate
 ```
 
-### 4. Install dependencies
+### 4. Install Dependencies
 
 ```bash
 pip install -r requirements.txt
@@ -318,9 +516,9 @@ pip install -r requirements.txt
 
 ---
 
-## ▶️ Running the Project
+## ▶️ Running MOTIVE
 
-Place the input traffic video inside:
+Place an input traffic video in:
 
 ```text
 data/test_videos/
@@ -332,214 +530,292 @@ Configure the input video path in:
 src/main.py
 ```
 
-Run:
+Then run:
 
 ```powershell
 python src/main.py
 ```
 
-The system processes the video and generates detection results and violation evidence.
+The system processes the video and produces detection/violation results and evidence where applicable.
 
 ---
 
 ## 📁 Output
 
-Generated evidence is stored in:
+Generated evidence is stored under:
 
 ```text
 outputs/evidence/
 ```
 
-Example:
+Typical violation categories include:
 
 ```text
-Bike 492 Rider ID 450: Without Helmet (0.728)
-
-Evidence saved:
-outputs/evidence/bike_492_No_Helmet_20260808_185504.jpg
-```
-
-Triple-riding example:
-
-```text
-Evidence saved:
-outputs/evidence/bike_9_Triple_Riding_20260808_185504.jpg
+Helmet Violation
+Triple Riding Violation
 ```
 
 ---
 
-## 🧪 Testing
+## 🧪 Testing Scenarios
 
-The system has been tested with footage containing:
+Development testing has included:
 
-- Single riders
-- Two riders
-- Multiple motorcycles
-- Riders with helmets
-- Riders without helmets
-- Triple-riding scenarios
-- Front-view motorcycles
-- Rear-view motorcycles
-- Moving traffic
-- Partially occluded riders
-- Different motorcycle distances
+* Single-rider motorcycles
+* Two-rider motorcycles
+* Multiple motorcycles
+* Riders with helmets
+* Riders without helmets
+* Triple-riding scenarios
+* Front-view motorcycle footage
+* Rear-view motorcycle footage
+* Moving traffic
+* Partially occluded riders
+* Small/distant motorcycles
+* Dashcam-style footage
 
----
-
-## 🔧 Model Training
-
-The helmet model can be retrained using a dataset containing:
-
-```text
-With Helmet
-Without Helmet
-```
-
-Example YOLO training command:
-
-```bash
-yolo detect train model=<base-model>.pt data=<dataset>.yaml epochs=200 imgsz=640
-```
-
-Model quality should be evaluated using validation metrics such as:
-
-- Precision
-- Recall
-- mAP@50
-- mAP@50-95
-
-Increasing the number of epochs alone does not guarantee better real-world performance.
+Testing will be expanded using a controlled evaluation dataset for research reporting.
 
 ---
 
 ## ⚠️ Current Limitations
 
+MOTIVE is an active research project and is not yet a production-grade enforcement system.
+
 ### Small Objects
-Riders and helmets become difficult to detect when motorcycles are far from the camera.
+
+Distant motorcycles and riders may occupy very few pixels.
 
 ### Occlusion
-Riders can partially block each other, especially in dense traffic and multi-rider situations.
+
+Multiple riders can overlap heavily, particularly in two-rider and triple-riding scenes.
 
 ### Motion Blur
-Fast-moving motorcycles can produce blurred rider and helmet regions.
+
+Fast-moving traffic can reduce detection and classification quality.
 
 ### Lighting
-Performance may decrease under low light, strong shadows, backlighting, or night conditions.
 
-### Viewing Angle
-Helmet classification can become difficult from unusual camera angles.
+Low light, shadows, glare, and backlighting can affect model performance.
+
+### Camera Perspective
+
+Performance can vary between front-view, rear-view, side-view, and highly oblique camera angles.
 
 ### Rider Association
-People standing or walking close to motorcycles can sometimes create association challenges.
+
+People near motorcycles can create challenging association cases.
+
+### Dataset Generalization
+
+Performance measured on one dataset or traffic environment does not automatically guarantee equivalent performance in other locations or camera configurations.
 
 ---
 
-## 🚀 Future Improvements
+## 🚀 Roadmap
 
-- [ ] Improve helmet detection dataset
-- [ ] Add more rear-view training samples
-- [ ] Improve small-object detection
-- [ ] Improve rider association
-- [ ] Improve temporal verification
-- [ ] Automatic number plate detection
-- [ ] Number plate OCR
-- [ ] Violation database
-- [ ] Web monitoring dashboard
-- [ ] Real-time CCTV support
-- [ ] Real-time camera streaming
-- [ ] Automated violation reports
-- [ ] Cloud evidence storage
-- [ ] Multi-camera support
-- [ ] Traffic analytics
-- [ ] Vehicle speed estimation
-- [ ] Lane detection
-- [ ] Edge-device deployment
+### Phase 1 — Core Detection
+
+* [x] Motorcycle detection
+* [x] Person/rider detection
+* [x] Motorcycle tracking
+* [x] Rider tracking
+* [x] Helmet classification
+* [x] Helmet violation detection
+
+### Phase 2 — Association & Verification
+
+* [x] Rider–motorcycle association
+* [x] Rider counting
+* [x] Triple-riding detection
+* [x] Temporal verification
+* [x] Evidence generation
+
+### Phase 3 — Research Improvements
+
+* [ ] Pose / anatomical keypoint integration
+* [ ] Pose-assisted rider association
+* [ ] Improved rear-view performance
+* [ ] Improved small-object detection
+* [ ] Hard-example mining
+* [ ] Systematic ablation studies
+* [ ] Dedicated research benchmark
+
+### Phase 4 — Extended Traffic Intelligence
+
+* [ ] Number-plate detection
+* [ ] Number-plate OCR
+* [ ] Violation database
+* [ ] Automated violation reports
+* [ ] Real-time CCTV processing
+* [ ] Web dashboard
+* [ ] Multi-camera support
+* [ ] Traffic analytics
+* [ ] Edge-device deployment
+
+---
+
+## 📚 Research & Publication Plan
+
+MOTIVE is intended to support research publications around several technical components.
+
+### Potential Paper 1 — Rider–Motorcycle Association
+
+**Pose-Assisted Rider–Motorcycle Association for Motorcycle Traffic Video**
+
+Focus:
+
+* Rider association
+* Tracking
+* Pose/keypoints
+* Spatial relationships
+* Ablation studies
+
+### Potential Paper 2 — Helmet Violation Detection
+
+**Temporal Verification for Robust Helmet Violation Detection in Traffic Video**
+
+Focus:
+
+* Helmet detection
+* Temporal consistency
+* False-positive reduction
+* Rear-view traffic footage
+
+### Potential Paper 3 — Unified Framework
+
+**MOTIVE: A Multi-Stage Computer Vision Framework for Motorcycle Traffic Violation Detection**
+
+Focus:
+
+* Complete architecture
+* Multiple violations
+* Rider association
+* Temporal verification
+* Evidence generation
+
+These are proposed research directions, not claims of completed publications.
+
+---
+
+## 🔐 Dataset, Privacy & Responsible Use
+
+Traffic video may contain personally identifiable information such as faces, vehicle number plates, locations, and timestamps.
+
+For research use:
+
+* Use datasets with appropriate permissions.
+* Respect dataset licenses.
+* Avoid publishing unnecessary personally identifiable information.
+* Anonymize faces and number plates when required.
+* Do not treat model predictions as legal proof without appropriate human and regulatory validation.
+* Document the source and license of every dataset used.
 
 ---
 
 ## 📌 Project Status
 
-### Completed
+**Status: Active Research & Development**
 
-- [x] Motorcycle detection
-- [x] Person/rider detection
-- [x] Motorcycle tracking
-- [x] Rider tracking
-- [x] Rider association
-- [x] Helmet classification
-- [x] No Helmet detection
-- [x] Triple Riding detection
-- [x] Temporal violation verification
-- [x] Evidence generation
-- [x] Dashcam testing
+### Implemented
 
-### Planned
+* [x] Motorcycle detection
+* [x] Person/rider detection
+* [x] Motorcycle tracking
+* [x] Rider tracking
+* [x] Rider–motorcycle association
+* [x] Helmet classification
+* [x] Helmet violation detection
+* [x] Rider counting
+* [x] Triple-riding detection
+* [x] Temporal verification
+* [x] Evidence generation
+* [x] Dashcam testing
 
-- [ ] Number plate recognition
-- [ ] OCR
-- [ ] Database integration
-- [ ] Web dashboard
-- [ ] Real-time deployment
-- [ ] Multi-camera support
-- [ ] Automated reporting
+### Under Research
+
+* [ ] Pose-based rider analysis
+* [ ] Anatomical keypoint integration
+* [ ] Improved rider association
+* [ ] Robust rear-view analysis
+* [ ] Systematic benchmarking
+* [ ] Ablation studies
+* [ ] Research-paper evaluation
 
 ---
 
-## 🎓 Project Objective
+## 🎯 Long-Term Vision
 
-The objective of this project is to demonstrate how **deep learning, computer vision, object tracking, and intelligent decision-making** can be combined to build an automated traffic-rule monitoring system.
-
-The complete pipeline is:
+MOTIVE aims to evolve from a helmet detector into a **general motorcycle traffic intelligence framework**.
 
 ```text
-Object Detection
-      ↓
-Object Tracking
-      ↓
-Rider Association
-      ↓
-Helmet Classification
-      ↓
-Temporal Verification
-      ↓
-Violation Detection
-      ↓
-Evidence Generation
+                 MOTIVE
+                   │
+       ┌───────────┴───────────┐
+       │                       │
+ Motorcycle Understanding   Rider Understanding
+       │                       │
+       ├─ Detection            ├─ Detection
+       ├─ Tracking             ├─ Tracking
+       └─ Analysis             ├─ Pose
+                               └─ Association
+                   │
+                   ▼
+             Violation Analysis
+                   │
+       ┌───────────┼───────────┐
+       ▼           ▼           ▼
+   Helmet      Triple       Future
+  Violation    Riding      Violations
+       │           │           │
+       └───────────┼───────────┘
+                   ▼
+          Temporal Verification
+                   │
+                   ▼
+          Evidence Generation
 ```
 
-The project provides a foundation for intelligent transportation and automated traffic surveillance applications.
+The central research objective is to move from **object detection** toward **context-aware motorcycle and rider understanding**.
 
 ---
 
-## 🔐 Repository Management
+## 🤝 Contributing
 
-Large or generated files should not be committed to Git.
+MOTIVE is currently maintained as an academic research project.
 
-Typical ignored files include:
+Potential contributions include:
 
-```text
-.venv/
-__pycache__/
-outputs/
-*.pt
-*.pth
-*.onnx
-*.mp4
-datasets/
-```
+* Dataset preparation
+* Annotation improvements
+* Tracking algorithms
+* Rider association methods
+* Pose-based analysis
+* Temporal verification
+* Evaluation tools
+* Visualization
+* Documentation
 
-This keeps the GitHub repository focused on source code, documentation, and project configuration.
-
----
-
-## 👨‍💻 Author
-
-**Helmet Violation Detection System**
-
-An academic computer vision and intelligent transportation project.
+Before contributing datasets or external models, verify their licenses and redistribution requirements.
 
 ---
 
-## ⭐ Support
+## 📄 License
 
-If you find this project useful, consider giving the repository a ⭐ on GitHub.
+A project license should be added before public redistribution.
+
+Until a license is explicitly added to this repository, do not assume that the code or associated assets are freely reusable.
+
+---
+
+## 👨‍💻 Project
+
+**MOTIVE — Motorcycle-Oriented Traffic Violation Identification and Evidence**
+
+An academic research project focused on computer vision, intelligent transportation systems, and automated traffic-violation analysis.
+
+---
+
+<p align="center">
+  <b>From detection → to association → to understanding → to evidence.</b>
+</p>
