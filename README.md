@@ -1,4 +1,4 @@
-Below is the **complete README**. Copy **everything from `# MOTIVE` down to the final line** into your `README.md`.
+
 
 # MOTIVE
 
